@@ -1,0 +1,260 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<!-- ======================================================== -->
+<!-- HERO SECTION (Matching Screenshot 2)                     -->
+<!-- ======================================================== -->
+<div class="hero-section">
+  <div class="hero-tagline">EXPLAINABLE MEDICAL AI • RESEARCH PREVIEW</div>
+  <h1 class="hero-title">
+    See the signal
+    <span class="hero-title-highlight">behind the screen.</span>
+  </h1>
+  <p class="hero-description">
+    An end-to-end glaucoma research pipeline that connects EfficientNet-B3 visual features, a localized hypergraph neural network, and transparent visual explanations for every uploaded fundus image.
+  </p>
+  
+  <div class="hero-actions">
+    <a href="#uploadSection" class="btn-hero-primary" onclick="document.getElementById('uploadSection').scrollIntoView({behavior: 'smooth'}); return false;">
+      <span>Analyze a fundus image</span>
+      <span>→</span>
+    </a>
+    <div class="hero-feature-pills">
+      <span>🖥️ CPU-COMPATIBLE</span>
+      <span>•</span>
+      <span>🔒 NO DATA STORED</span>
+      <span>•</span>
+      <span style="color: var(--emerald-main);">⚡ REAL-TIME INFERENCE</span>
+    </div>
+  </div>
+
+  <!-- Horizontal 5-Step Pipeline Strip (Matching Screenshot 2) -->
+  <div class="pipeline-strip">
+    <div class="pipeline-card">
+      <div class="pipeline-header">
+        <span class="pipeline-icon">📄</span>
+        <span class="pipeline-num">01</span>
+      </div>
+      <div>
+        <div class="pipeline-name">Retinal image</div>
+        <div class="pipeline-meta">300 × 300</div>
+      </div>
+    </div>
+
+    <div class="pipeline-card">
+      <div class="pipeline-header">
+        <span class="pipeline-icon">🧬</span>
+        <span class="pipeline-num">02</span>
+      </div>
+      <div>
+        <div class="pipeline-name">EfficientNet-B3</div>
+        <div class="pipeline-meta">1536-D Feature Map</div>
+      </div>
+    </div>
+
+    <div class="pipeline-card">
+      <div class="pipeline-header">
+        <span class="pipeline-icon">⊞</span>
+        <span class="pipeline-num">03</span>
+      </div>
+      <div>
+        <div class="pipeline-name">k-NN hypergraph</div>
+        <div class="pipeline-meta">Localized Nodes</div>
+      </div>
+    </div>
+
+    <div class="pipeline-card">
+      <div class="pipeline-header">
+        <span class="pipeline-icon">🕸️</span>
+        <span class="pipeline-num">04</span>
+      </div>
+      <div>
+        <div class="pipeline-name">X-HGNN</div>
+        <div class="pipeline-meta">Edge Relevance</div>
+      </div>
+    </div>
+
+    <div class="pipeline-card">
+      <div class="pipeline-header">
+        <span class="pipeline-icon">🎯</span>
+        <span class="pipeline-num">05</span>
+      </div>
+      <div>
+        <div class="pipeline-name">Explainability</div>
+        <div class="pipeline-meta">Grad-CAM + Concepts</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- WORKSPACE SECTION (Matching Screenshot 3)                -->
+<!-- ======================================================== -->
+<div class="workspace-grid" id="uploadSection">
+  <!-- Left Card: Upload -->
+  <div class="workspace-card">
+    <div class="step-label">— 01 • UPLOAD</div>
+    <h2 class="workspace-title">Start with a retinal image</h2>
+    <p class="workspace-subtext">Drop a fundus image into the pipeline. The file is processed in memory for this analysis and is not saved.</p>
+
+    <div id="errorAlert" style="display: none; background: rgba(244, 63, 94, 0.15); border: 1px solid var(--rose-main); color: #fb7185; padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; margin-bottom: 1.25rem;"></div>
+
+    <form id="uploadForm">
+      <div class="clean-dropzone" id="dropzone">
+        <div class="dropzone-cloud-icon">☁️</div>
+        <div class="dropzone-main-text">Drop your fundus image here</div>
+        <div class="dropzone-sub-text">or click to browse • JPG, PNG, WebP • max 10 MB</div>
+        <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" style="display: none;">
+      </div>
+
+      <!-- Preview Box -->
+      <div class="preview-box" id="previewContainer">
+        <img id="previewImg" class="preview-thumb" src="" alt="Selected Fundus">
+      </div>
+
+      <!-- Quick sample test chips -->
+      <div class="sample-chips-row">
+        <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase;">Quick Samples:</span>
+        <button type="button" class="sample-chip" onclick="loadSample('normal')">🟢 Normal Fundus Sample</button>
+        <button type="button" class="sample-chip" onclick="loadSample('glaucoma')">🔴 Glaucoma Fundus Sample</button>
+      </div>
+
+      <button type="submit" id="analyzeBtn" class="btn-hero-primary" style="width: 100%; justify-content: center;" disabled>
+        <span id="btnSpinner" class="spinner" style="display: none;"></span>
+        <span id="btnText">Analyze image</span>
+      </button>
+    </form>
+
+    <!-- Subtle discreet notice matching screenshot 3 -->
+    <div class="discrete-notice">
+      <span class="notice-icon">🛡️</span>
+      <span>Research / educational screening tool only. Not a diagnosis, not a replacement for an ophthalmologist, and confidence is not clinical certainty.</span>
+    </div>
+  </div>
+
+  <!-- Right Card: Traceable Decision Path (Matching Screenshot 3) -->
+  <div class="workspace-card">
+    <div class="step-label">— 02 • WHAT HAPPENS NEXT</div>
+    <h2 class="workspace-title">A traceable decision path</h2>
+    
+    <div class="decision-path-list">
+      <div class="decision-path-item">
+        <div class="step-num-badge">01</div>
+        <div class="decision-path-text">
+          <strong style="color: #ffffff; display: block; margin-bottom: 0.15rem;">CLAHE + Standardization</strong>
+          Adaptive histogram equalization on the green/L channel keeps image preparation visible.
+        </div>
+      </div>
+
+      <div class="decision-path-item">
+        <div class="step-num-badge">02</div>
+        <div class="decision-path-text">
+          <strong style="color: #ffffff; display: block; margin-bottom: 0.15rem;">Hypergraph Structural Connections</strong>
+          Hypergraph edges connect spatially and visually similar regions beyond pairwise relationships.
+        </div>
+      </div>
+
+      <div class="decision-path-item">
+        <div class="step-num-badge">03</div>
+        <div class="decision-path-text">
+          <strong style="color: #ffffff; display: block; margin-bottom: 0.15rem;">Grad-CAM & VLT Explanations</strong>
+          Gradient activations and concept estimates make every prediction inspectable in natural language.
+        </div>
+      </div>
+    </div>
+
+    <!-- Highlight Callout Box (Matching Screenshot 3) -->
+    <div class="pulse-callout-card">
+      <div class="pulse-callout-header">
+        <span>📈</span>
+        <span>NO HARD-CODED OUTPUTS</span>
+      </div>
+      <div class="pulse-callout-text">
+        Prediction, confidence, heatmap, subgraph, and explanation are generated from the current model weights and this image in real time.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- RESULTS SECTION (Appears smoothly directly below)         -->
+<!-- ======================================================== -->
+<div id="resultsSection" class="results-section">
+  <!-- Prediction Banner -->
+  <div class="result-hero-banner">
+    <div>
+      <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.6rem;">Screening Decision</div>
+      <div id="predictionBadge"></div>
+      <div style="margin-top: 0.8rem; font-size: 0.85rem; color: var(--text-muted);">
+        Case ID: <code id="caseIdDisplay" style="color: var(--cyan-main); font-weight: bold;"></code> | Computed on EfficientNet-B3 + X-HGNN
+      </div>
+    </div>
+
+    <div style="text-align: right;">
+      <div class="confidence-big" id="confidenceValue">--%</div>
+      <div class="confidence-caption">Calibrated Model Confidence</div>
+    </div>
+  </div>
+
+  <!-- 3-Column Visual Inspection Grid -->
+  <div class="inspection-grid">
+    <div class="inspection-card">
+      <img id="origImgDisplay" class="inspection-img" src="" alt="Preprocessed Fundus">
+      <div class="inspection-title">01 • Preprocessed Fundus</div>
+      <div class="inspection-sub">CLAHE contrast enhanced</div>
+    </div>
+
+    <div class="inspection-card">
+      <img id="gradcamImgDisplay" class="inspection-img" src="" alt="Grad-CAM Saliency">
+      <div class="inspection-title">02 • Grad-CAM Visual Heatmap</div>
+      <div class="inspection-sub">Conv feature gradient activation</div>
+    </div>
+
+    <div class="inspection-card">
+      <img id="radarImgDisplay" class="inspection-img" src="" alt="Clinical Concept Radar">
+      <div class="inspection-title">03 • Concept Radar Profile</div>
+      <div class="inspection-sub">5-axis structural indices</div>
+    </div>
+  </div>
+
+  <!-- X-HGNN Grounding Card -->
+  <div class="hgnn-card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div class="step-label">— STRUCTURAL EXPLAINABILITY</div>
+        <h3 style="font-size: 1.3rem; font-weight: 800; color: #ffffff;">X-HGNN Decision-Relevant Sub-Hypergraph Grounding</h3>
+      </div>
+      <span class="status-indicator" style="border-color: rgba(0, 229, 153, 0.4); color: var(--emerald-main);">Gumbel-Softmax Saliency</span>
+    </div>
+    <img id="hgnnImgDisplay" class="hgnn-img" src="" alt="X-HGNN Grounding">
+    <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+      The Explainable Hypergraph Neural Network (X-HGNN) connects localized retinal patch nodes across concentric zones and vascular contours. Gumbel-Softmax differentiable sampling selected the decision-critical hyperedges highlighted above.
+    </div>
+  </div>
+
+  <!-- Model-Derived Clinical Concepts Breakdown -->
+  <div class="concepts-card">
+    <div class="step-label">— MODEL-DERIVED CONCEPTS</div>
+    <h3 style="font-size: 1.3rem; font-weight: 800; color: #ffffff;">Retinal Structural Concept Estimates</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted);">Normalized feature proxies on a [0.0 - 1.0] scale derived from the selected sub-hypergraph.</p>
+    
+    <div class="concepts-grid" id="conceptsContainer">
+      <!-- Injected via JavaScript -->
+    </div>
+  </div>
+
+  <!-- Vision-Language Transformer (VLT) Narrative Card -->
+  <div class="narrative-card">
+    <div class="step-label">— VISION-LANGUAGE TRANSFORMER (VLT)</div>
+    <h3 style="font-size: 1.3rem; font-weight: 800; color: #ffffff;">Natural-Language Clinical Narrative</h3>
+    <div class="narrative-content" id="vltNarrativeDisplay"></div>
+  </div>
+
+  <!-- Optional Download Button -->
+  <div style="text-align: center; margin-bottom: 4rem;">
+    <a id="downloadPdfBtn" href="#" class="btn-hero-primary" style="background: transparent; color: #ffffff; border: 1.5px solid var(--border-subtle);">
+      <span>📄 Download PDF Clinical Summary</span>
+    </a>
+  </div>
+</div>
+{% endblock %}

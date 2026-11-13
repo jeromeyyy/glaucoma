@@ -1,0 +1,20 @@
+{
+  "baseline_cnn": {
+    "name": "Baseline Custom CNN (Mini-Project)",
+    "accuracy": 0.5,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_score": 0.0,
+    "roc_auc": 1.0,
+    "explainability": "None (Black-Box)"
+  },
+  "proposed_xhgnn_vlt": {
+    "name": "Proposed EfficientNet-B3 + X-HGNN + VLT",
+    "accuracy": 0.6,
+    "precision": 0.5556,
+    "recall": 1.0,
+    "f1_score": 0.7143,
+    "roc_auc": 1.0,
+    "explainability": "Multi-Modal (Grad-CAM + X-HGNN + Concepts + VLT)"
+  }
+}

@@ -1,0 +1,142 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Screening Report: {{ case_id }} | GlaucomaScreen-XAI{% endblock %}
+
+{% block content %}
+<!-- Top Action Bar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;">Multimodal Glaucoma Screening Report</h1>
+    <div style="font-size: 0.85rem; color: var(--text-muted);">Case ID: <code style="color: var(--accent-cyan);">{{ case_id }}</code> | Patient Ref: <strong>{{ patient_ref }}</strong> | {{ timestamp }}</div>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="/" class="btn btn-secondary">← Analyze Another Image</a>
+    <a href="/download_pdf/{{ case_id }}" class="btn btn-primary">📄 Download Clinical Report (PDF)</a>
+  </div>
+</div>
+
+<!-- Prediction Summary Header Card -->
+<div class="result-header-card">
+  <div>
+    <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.5rem;">AI-Assisted Screening Assessment</div>
+    {% if prediction == 'Glaucoma' %}
+      <div class="result-badge-glaucoma">
+        <span>⚠️</span> GLAUCOMA SUSPECT
+      </div>
+    {% else %}
+      <div class="result-badge-normal">
+        <span>✓</span> NORMAL / NON-GLAUCOMATOUS
+      </div>
+    {% endif %}
+    <div style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">
+      Prediction derived from fused EfficientNet-B3 deep representations and X-HGNN structural embeddings.
+    </div>
+  </div>
+
+  <div style="text-align: right;">
+    <div class="confidence-label">Model Confidence Score</div>
+    <div class="confidence-meter">{{ (confidence * 100)|round(1) }}%</div>
+    <div style="font-size: 0.8rem; color: #10b981;">Calibrated Softmax Probability</div>
+  </div>
+</div>
+
+<!-- SECTION 1: Visual & Concept Multimodal Evidence -->
+<div class="card">
+  <h2 class="card-title">1. Visual & Concept Explainability Evidence</h2>
+  <p class="card-subtitle">Gradient-weighted class activations (Grad-CAM) paired with quantitative model-derived concept radar.</p>
+
+  <div class="visualizer-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <!-- (A) Original Preprocessed -->
+    <div class="visualizer-card">
+      <img src="{{ url_for('static', filename='generated/' + original_img) }}" class="visualizer-img" alt="Preprocessed Fundus">
+      <div class="visualizer-label">(A) Preprocessed Fundus</div>
+      <div class="visualizer-desc">CLAHE enhanced RGB color photography</div>
+    </div>
+
+    <!-- (B) Grad-CAM Overlay -->
+    <div class="visualizer-card">
+      <img src="{{ url_for('static', filename='generated/' + gradcam_img) }}" class="visualizer-img" alt="Grad-CAM Overlay">
+      <div class="visualizer-label">(B) EfficientNet-B3 Grad-CAM</div>
+      <div class="visualizer-desc">Gradient Class Activation Mapping on final conv stage</div>
+    </div>
+
+    <!-- (C) Concept Radar Profile -->
+    <div class="visualizer-card">
+      <img src="{{ url_for('static', filename='generated/' + radar_img) }}" class="visualizer-img" alt="Clinical Concept Radar">
+      <div class="visualizer-label">(C) Concept Radar Profile</div>
+      <div class="visualizer-desc">5-axis model-derived structural indices</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: Structural X-HGNN Grounding -->
+<div class="card">
+  <h2 class="card-title">2. Structural Explainability (X-HGNN & Gumbel-Softmax)</h2>
+  <p class="card-subtitle">Higher-order relational modeling across retinal quadrants, concentric rings, and vascular contours.</p>
+
+  <div style="text-align: center; margin-bottom: 1rem;">
+    <img src="{{ url_for('static', filename='generated/' + hgnn_img) }}" style="max-width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border-color); box-shadow: var(--shadow-main);" alt="X-HGNN Sub-Hypergraph Grounding">
+  </div>
+  <div style="background: rgba(15, 23, 42, 0.6); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+    <strong style="color: #f8fafc;">Methodology Note:</strong> The Explainable Hypergraph Neural Network (X-HGNN) groups localized retinal patches into multi-node hyperedges (spatial quadrants, semantic k-NN clusters, and vascular arcades). Differentiable Gumbel-Softmax sampling selects the compact sub-hypergraph most predictive of the diagnosis without ad-hoc thresholding.
+  </div>
+</div>
+
+<!-- SECTION 3: Model-Derived Clinical Concepts Table -->
+<div class="card">
+  <h2 class="card-title">3. Model-Derived Clinical Concepts</h2>
+  <p class="card-subtitle">Projections of the selected sub-hypergraph into clinically interpretable retinal concepts.</p>
+
+  <table class="concept-table">
+    <thead>
+      <tr>
+        <th>Concept Name</th>
+        <th>Derived Value</th>
+        <th>Visual Magnitude</th>
+        <th>Screening Status</th>
+        <th>Clinical Significance Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in concepts %}
+      <tr>
+        <td style="font-weight: 600; color: #f8fafc;">{{ c.title }}</td>
+        <td><code style="color: #38bdf8; font-weight: bold;">{{ c.score }}</code></td>
+        <td>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width: {{ c.score_pct }}%; background-color: {% if c.badge == 'danger' %}#ef4444{% else %}#10b981{% endif %};"></div>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">{{ c.score_pct }}%</span>
+        </td>
+        <td>
+          {% if c.badge == 'danger' %}
+            <span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">{{ c.status }}</span>
+          {% else %}
+            <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">{{ c.status }}</span>
+          {% endif %}
+        </td>
+        <td style="color: var(--text-muted); font-size: 0.8rem;">{{ c.description }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div style="margin-top: 0.75rem; font-size: 0.75rem; color: #94a3b8; font-style: italic;">
+    * All concepts above are labeled as <strong>model-derived concepts</strong> estimated from deep feature representations and are not physical ophthalmic instrument measurements.
+  </div>
+</div>
+
+<!-- SECTION 4: Vision-Language Transformer Explanation -->
+<div class="card">
+  <h2 class="card-title">4. Natural-Language Clinical Explanation (VLT)</h2>
+  <p class="card-subtitle">Synthesized narrative generated by the Vision-Language Transformer cross-attention module.</p>
+
+  <div class="narrative-box">{{ vlt_narrative }}</div>
+</div>
+
+<!-- Bottom Action Bar -->
+<div style="text-align: center; margin: 2rem 0;">
+  <a href="/download_pdf/{{ case_id }}" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.05rem;">
+    📄 Download Complete Unified Clinical Report (PDF)
+  </a>
+</div>
+{% endblock %}
