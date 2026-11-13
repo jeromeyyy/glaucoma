@@ -34,13 +34,13 @@ RUN useradd -m -u 1001 glucom && \
 
 USER glucom
 
-# Expose production port
+# Expose production port (dynamically overridden by cloud providers)
 EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-5000}/health || exit 1
 
-# Production entrypoint
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
+# Production entrypoint supporting dynamic cloud $PORT
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-5000}"]
 

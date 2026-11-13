@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: glucom-xai
+    runtime: docker
+    plan: standard
+    region: oregon
+    branch: master
+    healthCheckPath: /health
+    disk:
+      name: glucom-storage
+      mountPath: /app/data
+      sizeGB: 10
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NO_ALBUMENTATIONS_UPDATE
+        value: "1"
+      - key: MPLCONFIGDIR
+        value: /app/.matplotlib_cache
+      - key: GEMINI_API_KEY
+        sync: false
