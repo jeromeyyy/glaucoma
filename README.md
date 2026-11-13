@@ -1,8 +1,10 @@
 # Explainable Glaucoma Detection Using EfficientNet-B3, Hypergraph Neural Networks, and Vision-Language Transformers
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/jeromeyyy/glaucoma)
+[![CI/CD Pipeline](https://github.com/jeromeyyy/glaucoma/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/jeromeyyy/glaucoma/actions)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
-[![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)](https://flask.palletsprojects.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
