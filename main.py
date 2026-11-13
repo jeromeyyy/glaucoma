@@ -64,7 +64,23 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Configure Jinja2 Templates with Flask-compatible url_for support
+from jinja2 import pass_context
 templates = Jinja2Templates(directory="templates")
+
+@pass_context
+def custom_url_for(context, name: str, /, **path_params):
+    if name == "static":
+        filename = path_params.get("filename") or path_params.get("path") or ""
+        return f"/static/{filename}"
+    request = context.get("request") if isinstance(context, dict) else getattr(context, "get", lambda k: None)("request")
+    if request:
+        try:
+            return str(request.url_for(name, **path_params))
+        except Exception:
+            pass
+    return f"/{name}"
+
+templates.env.globals["url_for"] = custom_url_for
 
 # Initialize Model & Services
 logger.info(f"Initializing Explainable Glaucoma Detection Model on {Config.DEVICE}...")
@@ -112,8 +128,9 @@ def validate_image_header(file_bytes: bytes) -> bool:
 def index_view(request: Request):
     dataset_report = check_all_datasets()
     return templates.TemplateResponse(
-        "index.html",
-        {
+        request=request,
+        name="index.html",
+        context={
             "request": request,
             "device": Config.DEVICE,
             "checkpoint_loaded": checkpoint_loaded,
@@ -146,8 +163,9 @@ def view_report(request: Request, case_id: str):
         }
 
     return templates.TemplateResponse(
-        "result.html",
-        {
+        request=request,
+        name="result.html",
+        context={
             "request": request,
             "case_id": data["case_id"],
             "patient_ref": data.get("patient_ref", "ANON-SCREENING"),
@@ -190,8 +208,9 @@ def ablation_view(request: Request):
     curve_path = os.path.join(Config.RESULTS_DIR, "training_curve_proposed.png")
 
     return templates.TemplateResponse(
-        "ablation.html",
-        {
+        request=request,
+        name="ablation.html",
+        context={
             "request": request,
             "comparison": comparison,
             "ablations": ablations,
