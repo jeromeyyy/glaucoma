@@ -110,14 +110,22 @@ TOTAL: 8 | PASSED: 8 | FAILED: 0 (100% PASS RATE)
 
 ## 6. Deployment & Access Instructions
 
-### 1. Live Local Deployment (Active Now)
-The application is currently running as a daemon process:
+### 1. Permanent Cloud Deployment (Render.com + GitHub)
+The complete production repository is published and tracked on GitHub:
+- **Official GitHub Repository:** [https://github.com/jeromeyyy/glaucoma](https://github.com/jeromeyyy/glaucoma)
+- **1-Click Permanent Cloud Deploy Button:**  
+  👉 **[Deploy GLUCOM to Render](https://render.com/deploy?repo=https://github.com/jeromeyyy/glaucoma)**
+
+Once deployed on Render, the permanent public URLs are:
+- **Public Production Web App:** `https://glucom-xai.onrender.com`
+- **Public API Health Endpoint:** `https://glucom-xai.onrender.com/health`
+- **Model Info & Real Metrics:** `https://glucom-xai.onrender.com/model/info`
+- **Ablation Dashboard:** `https://glucom-xai.onrender.com/ablation`
+- **Screening Case History:** `https://glucom-xai.onrender.com/history`
+
+### 2. Live Local Deployment (Active on Host Machine)
 - **URL:** [http://localhost:5000](http://localhost:5000)
 - **Alternative URL:** [http://127.0.0.1:5000](http://127.0.0.1:5000)
-- **API Health Check:** [http://localhost:5000/health](http://localhost:5000/health)
-- **Model Architecture & Metrics:** [http://localhost:5000/model/info](http://localhost:5000/model/info)
-- **Ablation Dashboard:** [http://localhost:5000/ablation](http://localhost:5000/ablation)
-- **Screening History:** [http://localhost:5000/history](http://localhost:5000/history)
 
 ### 2. Manual CLI Startup
 ```powershell
