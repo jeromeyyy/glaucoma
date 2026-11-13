@@ -25,8 +25,9 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 # Copy complete project codebase
 COPY . /app/
 
-# Ensure runtime directories exist
-RUN mkdir -p /app/data /app/checkpoints /app/results /app/uploads /app/static/generated /app/.matplotlib_cache
+# Ensure runtime directories exist and hydrate real model weights
+RUN mkdir -p /app/data /app/checkpoints /app/results /app/uploads /app/static/generated /app/.matplotlib_cache && \
+    python -c "from training.checkpoints import hydrate_checkpoint; from config import Config; hydrate_checkpoint(Config.BEST_MODEL_PATH); hydrate_checkpoint(Config.BASELINE_MODEL_PATH)"
 
 # Create non-root system user for security
 RUN useradd -m -u 1001 glucom && \

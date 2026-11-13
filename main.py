@@ -91,15 +91,13 @@ model = ExplainableGlaucomaModel(
 )
 
 checkpoint_loaded = False
-if checkpoint_exists(Config.BEST_MODEL_PATH):
-    try:
-        load_checkpoint(Config.BEST_MODEL_PATH, model, device=Config.DEVICE)
-        checkpoint_loaded = True
-        logger.info(f"Successfully loaded model weights from {Config.BEST_MODEL_PATH}")
-    except Exception as e:
-        logger.error(f"Failed to load checkpoint: {e}. Model will use initialized weights.")
-else:
-    logger.warning("No checkpoint found at startup. Running with initialized weights.")
+checkpoint_metadata = {}
+try:
+    checkpoint_metadata = load_checkpoint(Config.BEST_MODEL_PATH, model, device=Config.DEVICE)
+    checkpoint_loaded = True
+    logger.info(f"Successfully loaded model weights from {Config.BEST_MODEL_PATH} (SHA-256: {checkpoint_metadata.get('sha256', '')[:12]}...)")
+except Exception as e:
+    logger.critical(f"FATAL: Failed to load checkpoint: {e}. Model weights are unverified.")
 
 model = model.to(Config.DEVICE)
 model.eval()
@@ -230,7 +228,9 @@ def health():
         "cuda_available": (Config.DEVICE == "cuda"),
         "model_architecture": "EfficientNet-B3 + X-HGNN + Gumbel-Softmax + VLT",
         "checkpoint_loaded": checkpoint_loaded,
+        "checkpoint_sha256": checkpoint_metadata.get("sha256"),
         "checkpoint_path": Config.BEST_MODEL_PATH,
+        "val_metrics": checkpoint_metadata.get("val_metrics", {}),
         "num_classes": Config.NUM_CLASSES,
         "classes": Config.CLASS_NAMES,
         "database_status": "connected",
@@ -295,6 +295,12 @@ def predict(
     image: UploadFile = File(...),
     patient_id: Optional[str] = Form("ANON-SCREENING")
 ):
+    if not checkpoint_loaded:
+        raise HTTPException(
+            status_code=503,
+            detail="Clinical glaucoma detection model checkpoint is offline or unverified. Screening is disabled to protect diagnostic integrity."
+        )
+
     if not image or not image.filename:
         raise HTTPException(status_code=400, detail="No image file provided in upload request.")
 

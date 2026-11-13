@@ -225,6 +225,53 @@ def test_api_predict_and_error_handling():
     assert explain_data["case_id"] == pred_data["case_id"]
     assert "gradcam_url" in explain_data
 
+def test_model_unavailable_protection():
+    """
+    Verifies that the application strictly prohibits predictions
+    if the trained checkpoint is offline or unverified.
+    """
+    original_state = main.checkpoint_loaded
+    try:
+        main.checkpoint_loaded = False
+        dummy_file = UploadFile(filename="test.png", file=io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64))
+        try:
+            main.predict(image=dummy_file)
+            assert False, "Should have raised HTTP 503 when checkpoint is not loaded"
+        except HTTPException as e:
+            assert e.status_code == 503
+            assert "offline or unverified" in e.detail
+    finally:
+        main.checkpoint_loaded = original_state
+
+def test_image_dependent_inference():
+    """
+    Verifies that distinct input images produce distinct, non-identical outputs,
+    proving the model is genuine and image-dependent.
+    """
+    # Create two visually distinct synthetic fundus images
+    img1 = np.zeros((300, 300, 3), dtype=np.uint8)
+    cv2.circle(img1, (150, 150), 40, (180, 220, 255), -1) # bright optic disc
+    _, enc1 = cv2.imencode(".png", img1)
+    file1 = UploadFile(filename="img1.png", file=io.BytesIO(enc1.tobytes()))
+
+    img2 = np.full((300, 300, 3), 120, dtype=np.uint8)
+    cv2.circle(img2, (100, 200), 80, (20, 50, 200), -1) # dark offset lesion
+    _, enc2 = cv2.imencode(".png", img2)
+    file2 = UploadFile(filename="img2.png", file=io.BytesIO(enc2.tobytes()))
+
+    res1 = main.predict(image=file1, patient_id="PATIENT-ALPHA")
+    res2 = main.predict(image=file2, patient_id="PATIENT-BETA")
+
+    # Cases must have unique identifiers
+    assert res1["case_id"] != res2["case_id"]
+    # Image files must be unique
+    assert res1["gradcam_url"] != res2["gradcam_url"]
+    assert res1["hgnn_url"] != res2["hgnn_url"]
+    # Concept representations must be image-specific (not all identical)
+    c1 = [c["score"] for c in res1["clinical_concepts"]]
+    c2 = [c["score"] for c in res2["clinical_concepts"]]
+    assert c1 != c2, f"Clinical concept scores should depend on the input image: {c1} vs {c2}"
+
 if __name__ == "__main__":
     import sys
     try:
@@ -240,6 +287,8 @@ if __name__ == "__main__":
         ("API Health & Model Info Endpoints", test_api_health_and_info),
         ("API Sample Generation Endpoints", test_api_sample_generation),
         ("API Prediction, Explanation & Error Handling", test_api_predict_and_error_handling),
+        ("Model-Unavailable Protection & Safety", test_model_unavailable_protection),
+        ("Image-Dependent Inference & Non-Identical Outputs", test_image_dependent_inference),
     ]
     
     print("\n" + "=" * 60, flush=True)
