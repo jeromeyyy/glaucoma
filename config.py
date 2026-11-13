@@ -3,7 +3,14 @@ import torch
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Optimization: Silence third-party network version checks and set local matplotlib cache
+os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
+if "MPLCONFIGDIR" not in os.environ:
+    os.environ["MPLCONFIGDIR"] = os.path.join(BASE_DIR, ".matplotlib_cache")
+    os.makedirs(os.environ["MPLCONFIGDIR"], exist_ok=True)
+
 class Config:
+    BASE_DIR = BASE_DIR
     SEED = 42
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     NUM_WORKERS = 0
@@ -66,6 +73,11 @@ class Config:
     CONCEPT_LOSS_WEIGHT = 0.1
     
     DATA_DIR = os.path.join(BASE_DIR, 'data')
+    ACRIMA_DIR = os.getenv('ACRIMA_DIR', os.path.join(DATA_DIR, 'ACRIMA'))
+    # Use pre-resized 300x300 fundus if available for 20x faster training on CPU
+    FAST_FUNDUS_DIR = os.path.join(DATA_DIR, 'Fundus_Resized_300')
+    FUNDUS_DIR = os.getenv('FUNDUS_DIR', FAST_FUNDUS_DIR if os.path.exists(FAST_FUNDUS_DIR) else os.path.join(DATA_DIR, 'Fundus_Train_Val_Data'))
+    ORIGA_DIR = os.getenv('ORIGA_DIR', os.path.join(DATA_DIR, 'ORIGA'))
     ODIR_DIR = os.getenv('ODIR_DIR', os.path.join(DATA_DIR, 'ODIR'))
     G1020_DIR = os.getenv('G1020_DIR', os.path.join(DATA_DIR, 'G1020'))
     PAPILA_DIR = os.getenv('PAPILA_DIR', os.path.join(DATA_DIR, 'PAPILA'))

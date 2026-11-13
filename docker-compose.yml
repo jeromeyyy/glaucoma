@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  glucom-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: glucom-production
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - DEVICE=cpu
+      - SEED=42
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./uploads:/app/uploads
+      - ./static/generated:/app/static/generated
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+

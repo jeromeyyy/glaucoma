@@ -1,10 +1,10 @@
-﻿import os
+import os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
 
 def plot_confusion_matrix(cm, class_names=["Normal", "Glaucoma"], save_path="results/confusion_matrix.png"):
     """
@@ -66,6 +66,41 @@ def plot_roc_curve(y_true, y_probs, save_path="results/roc_curve.png"):
     ax.tick_params(colors="#CBD5E1")
     ax.grid(color="#334155", linestyle=":", alpha=0.7)
     ax.legend(loc="lower right", facecolor="#1E293B", edgecolor="#334155", labelcolor="#F8FAFC", fontsize=9)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=180, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close(fig)
+    return save_path
+
+def plot_pr_curve(y_true, y_probs, save_path="results/pr_curve.png"):
+    """
+    Plots and saves Precision-Recall curve.
+    """
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    y_true = np.array(y_true)
+    y_probs = np.array(y_probs)
+    if y_probs.ndim == 2:
+        y_probs = y_probs[:, 1]
+
+    precision, recall, _ = precision_recall_curve(y_true, y_probs)
+    pr_score = average_precision_score(y_true, y_probs)
+
+    fig, ax = plt.subplots(figsize=(5.5, 4.5))
+    fig.patch.set_facecolor("#0F172A")
+    ax.set_facecolor("#1E293B")
+
+    ax.plot(recall, precision, color="#10B981", linewidth=2.5, label=f"Proposed Model (PR-AUC = {pr_score:.3f})")
+    baseline = np.sum(y_true) / len(y_true)
+    ax.plot([0, 1], [baseline, baseline], color="#64748B", linestyle="--", linewidth=1.5, label=f"No Skill ({baseline:.2f})")
+
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel("Recall / Sensitivity", color="#94A3B8", fontsize=10)
+    ax.set_ylabel("Precision / PPV", color="#94A3B8", fontsize=10)
+    ax.set_title("Precision-Recall Curve (PR-AUC)", color="#F8FAFC", fontsize=12, pad=12, fontweight="bold")
+    ax.tick_params(colors="#CBD5E1")
+    ax.grid(color="#334155", linestyle=":", alpha=0.7)
+    ax.legend(loc="lower left", facecolor="#1E293B", edgecolor="#334155", labelcolor="#F8FAFC", fontsize=9)
 
     plt.tight_layout()
     plt.savefig(save_path, dpi=180, bbox_inches="tight", facecolor=fig.get_facecolor())

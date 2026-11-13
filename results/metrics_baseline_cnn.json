@@ -1,0 +1,26 @@
+{
+  "accuracy": 0.7696,
+  "precision": 0.7209,
+  "recall": 0.7294,
+  "sensitivity": 0.7294,
+  "specificity": 0.7983,
+  "f1_score": 0.7251,
+  "roc_auc": 0.7981,
+  "pr_auc": 0.805,
+  "confusion_matrix": [
+    [
+      95,
+      24
+    ],
+    [
+      23,
+      62
+    ]
+  ],
+  "tp": 62,
+  "tn": 95,
+  "fp": 24,
+  "fn": 23,
+  "total_samples": 204,
+  "val_loss": 0.0
+}

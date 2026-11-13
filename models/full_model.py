@@ -1,4 +1,4 @@
-﻿import torch
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -151,7 +151,12 @@ class ExplainableGlaucomaModel(nn.Module):
         # Step 8: Unified Glaucoma Classification
         # Fuses CNN global pooled features + X-HGNN selected sub-hypergraph representation
         fused_features = torch.cat([pooled_cnn, graph_emb_sub], dim=-1)
-        final_logits = self.classifier(fused_features)
+        if fused_features.size(0) == 1 and self.training:
+            self.eval()
+            final_logits = self.classifier(fused_features)
+            self.train()
+        else:
+            final_logits = self.classifier(fused_features)
         
         probs = F.softmax(final_logits, dim=-1)
         pred_idx = torch.argmax(probs, dim=-1)

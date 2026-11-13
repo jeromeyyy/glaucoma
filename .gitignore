@@ -26,3 +26,16 @@ wheels/
 .DS_Store
 *.tmp
 node_modules/
+.matplotlib_cache/
+data/ACRIMA/
+data/Fundus_Train_Val_Data/
+data/Fundus_Resized_300/
+checkpoints/*.pth
+data/glucom.db
+uploads/*.png
+uploads/*.jpg
+uploads/*.jpeg
+static/generated/*.pdf
+static/generated/*.png
+
+

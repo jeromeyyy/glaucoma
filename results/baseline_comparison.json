@@ -1,20 +1,26 @@
 {
   "baseline_cnn": {
     "name": "Baseline Custom CNN (Mini-Project)",
-    "accuracy": 0.5,
-    "precision": 0.0,
-    "recall": 0.0,
-    "f1_score": 0.0,
-    "roc_auc": 1.0,
+    "accuracy": 0.7696,
+    "precision": 0.7209,
+    "recall": 0.7294,
+    "sensitivity": 0.7294,
+    "specificity": 0.7983,
+    "f1_score": 0.7251,
+    "roc_auc": 0.7981,
+    "pr_auc": 0.805,
     "explainability": "None (Black-Box)"
   },
   "proposed_xhgnn_vlt": {
     "name": "Proposed EfficientNet-B3 + X-HGNN + VLT",
-    "accuracy": 0.6,
-    "precision": 0.5556,
-    "recall": 1.0,
-    "f1_score": 0.7143,
-    "roc_auc": 1.0,
+    "accuracy": 0.8922,
+    "precision": 0.92,
+    "recall": 0.8118,
+    "sensitivity": 0.8118,
+    "specificity": 0.9496,
+    "f1_score": 0.8625,
+    "roc_auc": 0.9435,
+    "pr_auc": 0.9436,
     "explainability": "Multi-Modal (Grad-CAM + X-HGNN + Concepts + VLT)"
   }
 }

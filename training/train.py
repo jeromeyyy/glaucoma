@@ -1,4 +1,9 @@
-﻿import os
+import os
+import sys
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 import argparse
 import json
 import torch
@@ -18,8 +23,8 @@ from evaluation.plots import plot_training_curves
 
 def train_model(
     model_type="proposed",
-    dataset_name="synthetic",
-    num_epochs=10,
+    dataset_name="combined",
+    num_epochs=5,
     batch_size=8,
     lr=1e-4,
     device=None,
@@ -37,7 +42,7 @@ def train_model(
         image_size=Config.IMAGE_SIZE,
         num_workers=Config.NUM_WORKERS
     )
-    logger.info(f"DataLoaders prepared: {len(train_loader.dataset)} train samples, {len(val_loader.dataset)} val samples")
+    logger.info(f"DataLoaders prepared: {len(train_loader.dataset)} train samples, {len(val_loader.dataset)} val samples, {len(test_loader.dataset)} test samples")
 
     # 2. Instantiate Model
     if model_type == "baseline_cnn":
@@ -59,10 +64,17 @@ def train_model(
         )
         save_path = save_path or Config.BEST_MODEL_PATH
 
+        # Staged training: warmup epochs 1-2 freeze backbone to train HGNN & heads cleanly
+        if num_epochs > 2:
+            for param in model.backbone.features.parameters():
+                param.requires_grad = False
+            logger.info("Backbone frozen for initial warmup epochs (staged fine-tuning).")
+
     model = model.to(device)
 
     # 3. Optimizer & Scheduler
-    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=Config.WEIGHT_DECAY)
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = AdamW(trainable_params, lr=lr, weight_decay=Config.WEIGHT_DECAY)
     scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-6)
 
     # Temperature annealing for Gumbel-Softmax
@@ -79,6 +91,17 @@ def train_model(
     }
 
     for epoch in range(1, num_epochs + 1):
+        # Stage 2: unfreeze upper backbone blocks on epoch 3
+        if model_type != "baseline_cnn" and epoch == 3 and num_epochs > 2:
+            logger.info("Unfreezing upper convolutional blocks (features[6:]) for fine-tuning...")
+            for block in model.backbone.features[6:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+            # Recreate optimizer with updated parameter set
+            trainable_params = [p for p in model.parameters() if p.requires_grad]
+            optimizer = AdamW(trainable_params, lr=lr * 0.7, weight_decay=Config.WEIGHT_DECAY)
+            scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs - epoch + 1, eta_min=1e-6)
+
         model.train()
         train_loss = 0.0
         n_samples = 0
@@ -123,7 +146,8 @@ def train_model(
             f"Train Loss: {epoch_train_loss:.4f} | "
             f"Val Loss: {epoch_val_loss:.4f} | "
             f"Val Acc: {val_acc:.4f} | "
-            f"Val F1: {val_f1:.4f}"
+            f"Val F1: {val_f1:.4f} | "
+            f"Val AUC: {val_metrics.get('roc_auc', 0.5):.4f}"
         )
 
         # Checkpointing
@@ -152,7 +176,7 @@ def train_model(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Glaucoma Detection Models")
     parser.add_argument("--model", type=str, default="proposed", choices=["proposed", "baseline_cnn", "efficientnet_b3"])
-    parser.add_argument("--dataset", type=str, default="synthetic", help="Dataset name: synthetic, odir, g1020, etc.")
+    parser.add_argument("--dataset", type=str, default="combined", help="Dataset name: combined, acrima, fundus, synthetic")
     parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=8, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")

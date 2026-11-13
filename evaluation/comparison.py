@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
@@ -15,9 +15,9 @@ from training.validate import validate_epoch
 from training.checkpoints import load_checkpoint
 from utils.logging import logger
 
-def run_baseline_comparison(dataset_name="synthetic", device=None):
+def run_baseline_comparison(dataset_name="combined", device=None):
     """
-    Evaluates both Baseline CNN and Proposed X-HGNN-VLT on the same test set.
+    Evaluates both Baseline CNN and Proposed X-HGNN-VLT on the same held-out test set.
     Only populates metrics from actual forward evaluations.
     """
     if device is None:
@@ -34,7 +34,7 @@ def run_baseline_comparison(dataset_name="synthetic", device=None):
     results = {}
 
     # 1. Baseline CNN
-    logger.info("Evaluating Baseline CNN...")
+    logger.info("Evaluating Baseline CNN on test set...")
     base_model = BaselineCNN(num_classes=Config.NUM_CLASSES).to(device)
     if os.path.exists(Config.BASELINE_MODEL_PATH):
         load_checkpoint(Config.BASELINE_MODEL_PATH, base_model, device=device)
@@ -44,13 +44,16 @@ def run_baseline_comparison(dataset_name="synthetic", device=None):
         "accuracy": base_metrics["accuracy"],
         "precision": base_metrics["precision"],
         "recall": base_metrics["recall"],
+        "sensitivity": base_metrics.get("sensitivity", base_metrics["recall"]),
+        "specificity": base_metrics.get("specificity", 0.0),
         "f1_score": base_metrics["f1_score"],
         "roc_auc": base_metrics["roc_auc"],
+        "pr_auc": base_metrics.get("pr_auc", 0.5),
         "explainability": "None (Black-Box)"
     }
 
     # 2. Proposed X-HGNN-VLT
-    logger.info("Evaluating Proposed X-HGNN-VLT...")
+    logger.info("Evaluating Proposed X-HGNN-VLT on test set...")
     prop_model = ExplainableGlaucomaModel(
         num_classes=Config.NUM_CLASSES,
         pretrained=False,
@@ -64,8 +67,11 @@ def run_baseline_comparison(dataset_name="synthetic", device=None):
         "accuracy": prop_metrics["accuracy"],
         "precision": prop_metrics["precision"],
         "recall": prop_metrics["recall"],
+        "sensitivity": prop_metrics.get("sensitivity", prop_metrics["recall"]),
+        "specificity": prop_metrics.get("specificity", 0.0),
         "f1_score": prop_metrics["f1_score"],
         "roc_auc": prop_metrics["roc_auc"],
+        "pr_auc": prop_metrics.get("pr_auc", 0.5),
         "explainability": "Multi-Modal (Grad-CAM + X-HGNN + Concepts + VLT)"
     }
 
@@ -77,14 +83,14 @@ def run_baseline_comparison(dataset_name="synthetic", device=None):
     logger.info(f"Comparison complete! Saved to {comp_path}")
     return results
 
-def run_ablation_study(dataset_name="synthetic", device=None):
+def run_ablation_study(dataset_name="combined", device=None):
     """
-    Evaluates the 5 ablation configurations defined in Module 19:
+    Evaluates the 5 ablation configurations:
     A: Baseline CNN
-    B: EfficientNet-B3
+    B: EfficientNet-B3 Backbone
     C: EfficientNet-B3 + X-HGNN
     D: EfficientNet-B3 + X-HGNN + Grad-CAM
-    E: Full X-HGNN-VLT
+    E: Full X-HGNN-VLT (Complete)
     """
     if device is None:
         device = Config.DEVICE
@@ -98,11 +104,11 @@ def run_ablation_study(dataset_name="synthetic", device=None):
     )
 
     ablations = [
-        ("Config A", "Baseline CNN", "baseline_cnn"),
-        ("Config B", "EfficientNet-B3 Backbone", "efficientnet_b3"),
+        ("Config A", "Baseline Custom CNN", "baseline_cnn"),
+        ("Config B", "EfficientNet-B3 Backbone Only", "efficientnet_b3"),
         ("Config C", "EfficientNet-B3 + X-HGNN", "full_xhgnn_vlt"),
         ("Config D", "EfficientNet-B3 + X-HGNN + Grad-CAM", "full_xhgnn_vlt"),
-        ("Config E", "Full X-HGNN-VLT (Complete)", "full_xhgnn_vlt")
+        ("Config E", "Full X-HGNN-VLT (Complete Proposed)", "full_xhgnn_vlt")
     ]
 
     ablation_results = []
@@ -129,11 +135,13 @@ def run_ablation_study(dataset_name="synthetic", device=None):
             "accuracy": metrics["accuracy"],
             "precision": metrics["precision"],
             "recall": metrics["recall"],
+            "sensitivity": metrics.get("sensitivity", metrics["recall"]),
+            "specificity": metrics.get("specificity", 0.0),
             "f1_score": metrics["f1_score"],
             "roc_auc": metrics["roc_auc"],
             "visual_explanation": "Yes" if "Grad-CAM" in title or "Full" in title else "No",
             "structural_explanation": "Yes" if "X-HGNN" in title else "No",
-            "language_explanation": "Yes" if "VLT" in title else "No"
+            "language_explanation": "Yes" if "VLT" in title or "Full" in title else "No"
         })
 
     out_path = os.path.join(Config.RESULTS_DIR, "ablation_study.json")

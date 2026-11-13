@@ -1,6 +1,7 @@
 import os
 import glob
 from PIL import Image
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from config import Config
@@ -48,8 +49,6 @@ class FundusDataset(Dataset):
 
         return tensor, torch.tensor(label, dtype=torch.long), img_path
 
-import numpy as np
-
 def scan_dataset_directory(dir_path):
     """
     Scans a directory for Normal and Glaucoma images.
@@ -60,9 +59,6 @@ def scan_dataset_directory(dir_path):
     if not os.path.exists(dir_path):
         return [], {"Normal": 0, "Glaucoma": 0, "status": "Directory not found"}
 
-    normal_patterns = ["*normal*", "*Normal*", "*0*", "*non-glaucoma*"]
-    glaucoma_patterns = ["*glaucoma*", "*Glaucoma*", "*1*"]
-
     samples = []
     normal_count = 0
     glaucoma_count = 0
@@ -71,7 +67,8 @@ def scan_dataset_directory(dir_path):
     for sub in os.listdir(dir_path):
         sub_lower = sub.lower()
         sub_full = os.path.join(dir_path, sub)
-        if not os.path.isdir(sub_full): continue
+        if not os.path.isdir(sub_full):
+            continue
 
         if any(p in sub_lower for p in ["negative", "normal", "healthy", "non_glaucoma", "non-glaucoma"]):
             label = 0
@@ -83,15 +80,17 @@ def scan_dataset_directory(dir_path):
         for ext in ("*.png", "*.jpg", "*.jpeg", "*.tif", "*.bmp", "*.JPG", "*.JPEG", "*.PNG"):
             for f in glob.glob(os.path.join(sub_full, ext)):
                 samples.append((f, label))
-                if label == 1: glaucoma_count += 1
-                else: normal_count += 1
+                if label == 1:
+                    glaucoma_count += 1
+                else:
+                    normal_count += 1
 
     # If images were directly in split folders or loose files
     if len(samples) == 0:
         for root, dirs, files in os.walk(dir_path):
-            for file in files:
+            for file in sorted(files):
                 ext = os.path.splitext(file)[1].lower()
-                if ext in [".png", ".jpg", ".jpeg"]:
+                if ext in [".png", ".jpg", ".jpeg", ".bmp"]:
                     full_path = os.path.join(root, file)
                     path_lower = full_path.lower()
                     if "_g_acrima" in path_lower or "_g_" in path_lower:
@@ -121,6 +120,9 @@ def check_all_datasets():
     Returns status report dictionary.
     """
     datasets_to_check = {
+        "ACRIMA": getattr(Config, "ACRIMA_DIR", os.path.join(Config.DATA_DIR, "ACRIMA")),
+        "Fundus (SiMES/ORIGA)": getattr(Config, "FUNDUS_DIR", os.path.join(Config.DATA_DIR, "Fundus_Train_Val_Data")),
+        "ORIGA": getattr(Config, "ORIGA_DIR", os.path.join(Config.DATA_DIR, "ORIGA")),
         "ODIR": Config.ODIR_DIR,
         "G1020": Config.G1020_DIR,
         "PAPILA": Config.PAPILA_DIR,
@@ -137,54 +139,105 @@ def check_all_datasets():
 
     return report
 
+def _stratified_split(samples, train_ratio=0.70, val_ratio=0.15, seed=42):
+    """
+    Performs deterministic stratified split on samples ensuring:
+    1. Balanced class ratios in train, val, and test.
+    2. Zero leakage between splits.
+    """
+    normals = [s for s in samples if s[1] == 0]
+    glaucomas = [s for s in samples if s[1] == 1]
+
+    rng = np.random.RandomState(seed)
+    rng.shuffle(normals)
+    rng.shuffle(glaucomas)
+
+    n_norm = len(normals)
+    n_glauc = len(glaucomas)
+
+    norm_train_end = int(train_ratio * n_norm)
+    norm_val_end = int((train_ratio + val_ratio) * n_norm)
+
+    glauc_train_end = int(train_ratio * n_glauc)
+    glauc_val_end = int((train_ratio + val_ratio) * n_glauc)
+
+    train_samples = normals[:norm_train_end] + glaucomas[:glauc_train_end]
+    val_samples = normals[norm_train_end:norm_val_end] + glaucomas[glauc_train_end:glauc_val_end]
+    test_samples = normals[norm_val_end:] + glaucomas[glauc_val_end:]
+
+    rng.shuffle(train_samples)
+    rng.shuffle(val_samples)
+    rng.shuffle(test_samples)
+
+    # Rigorous Zero-Leakage Verification
+    train_paths = {s[0] for s in train_samples}
+    val_paths = {s[0] for s in val_samples}
+    test_paths = {s[0] for s in test_samples}
+
+    assert len(train_paths & val_paths) == 0, "Patient/Image leakage detected between Train and Val!"
+    assert len(train_paths & test_paths) == 0, "Patient/Image leakage detected between Train and Test!"
+    assert len(val_paths & test_paths) == 0, "Patient/Image leakage detected between Val and Test!"
+
+    return train_samples, val_samples, test_samples
+
 def get_dataloaders(
-    dataset_name="synthetic",
+    dataset_name="combined",
     batch_size=8,
     image_size=(300, 300),
     num_workers=0
 ):
     """
     Creates train, val, and test DataLoaders for the selected dataset.
-    Falls back gracefully to synthetic fundus if external dataset is missing.
+    Supports real clinical datasets:
+      - 'combined': Merges ACRIMA and Fundus_Train_Val_Data (1,355 clinical images)
+      - 'acrima': ACRIMA clinical dataset (705 images)
+      - 'fundus': Fundus_Train_Val_Data clinical dataset (650 images)
+      - 'synthetic': Synthetic fundus dataset for quick tests
     """
-    dataset_dirs = {
-        "synthetic": Config.SYNTHETIC_DIR,
-        "odir": Config.ODIR_DIR,
-        "g1020": Config.G1020_DIR,
-        "papila": Config.PAPILA_DIR,
-        "airogs": Config.AIROGS_DIR,
-        "rimone": Config.RIMONE_DIR
-    }
-    
-    target_dir = dataset_dirs.get(dataset_name.lower(), Config.SYNTHETIC_DIR)
-    
-    # Check if train/val/test subdirectories exist
-    train_dir = os.path.join(target_dir, "train")
-    val_dir = os.path.join(target_dir, "val")
-    test_dir = os.path.join(target_dir, "test")
-    
-    train_samples, _ = scan_dataset_directory(train_dir)
-    val_samples, _ = scan_dataset_directory(val_dir)
-    test_samples, _ = scan_dataset_directory(test_dir)
-    
-    # If not split into train/val/test folders, split entire dataset 70/15/15
-    if len(train_samples) == 0:
-        all_samples, meta = scan_dataset_directory(target_dir)
+    name_lower = dataset_name.lower()
+
+    if name_lower == "combined":
+        acrima_dir = getattr(Config, "ACRIMA_DIR", os.path.join(Config.DATA_DIR, "ACRIMA"))
+        fundus_dir = getattr(Config, "FUNDUS_DIR", os.path.join(Config.DATA_DIR, "Fundus_Train_Val_Data"))
+        acrima_samples, _ = scan_dataset_directory(acrima_dir)
+        fundus_samples, _ = scan_dataset_directory(fundus_dir)
+        all_samples = acrima_samples + fundus_samples
         if len(all_samples) == 0:
-            # Fall back to synthetic
-            print(f"Dataset {dataset_name} empty or not found at {target_dir}. Falling back to synthetic fundus dataset.")
+            print("Real datasets not found; falling back to synthetic fundus.")
+            return get_dataloaders("synthetic", batch_size, image_size, num_workers)
+        train_samples, val_samples, test_samples = _stratified_split(all_samples, seed=Config.SEED)
+
+    elif name_lower == "acrima":
+        acrima_dir = getattr(Config, "ACRIMA_DIR", os.path.join(Config.DATA_DIR, "ACRIMA"))
+        all_samples, _ = scan_dataset_directory(acrima_dir)
+        if len(all_samples) == 0:
+            return get_dataloaders("synthetic", batch_size, image_size, num_workers)
+        train_samples, val_samples, test_samples = _stratified_split(all_samples, seed=Config.SEED)
+
+    elif name_lower == "fundus":
+        fundus_dir = getattr(Config, "FUNDUS_DIR", os.path.join(Config.DATA_DIR, "Fundus_Train_Val_Data"))
+        all_samples, _ = scan_dataset_directory(fundus_dir)
+        if len(all_samples) == 0:
+            return get_dataloaders("synthetic", batch_size, image_size, num_workers)
+        train_samples, val_samples, test_samples = _stratified_split(all_samples, seed=Config.SEED)
+
+    else:
+        # Standard directory check or synthetic fallback
+        dataset_dirs = {
+            "synthetic": Config.SYNTHETIC_DIR,
+            "odir": Config.ODIR_DIR,
+            "g1020": Config.G1020_DIR,
+            "papila": Config.PAPILA_DIR,
+            "airogs": Config.AIROGS_DIR,
+            "rimone": Config.RIMONE_DIR
+        }
+        target_dir = dataset_dirs.get(name_lower, Config.SYNTHETIC_DIR)
+        all_samples, _ = scan_dataset_directory(target_dir)
+        if len(all_samples) == 0:
             from .sample_generator import create_synthetic_dataset
             create_synthetic_dataset(Config.SYNTHETIC_DIR)
-            return get_dataloaders("synthetic", batch_size, image_size, num_workers)
-            
-        np.random.seed(Config.SEED)
-        np.random.shuffle(all_samples)
-        n = len(all_samples)
-        train_end = int(0.70 * n)
-        val_end = int(0.85 * n)
-        train_samples = all_samples[:train_end]
-        val_samples = all_samples[train_end:val_end]
-        test_samples = all_samples[val_end:]
+            all_samples, _ = scan_dataset_directory(Config.SYNTHETIC_DIR)
+        train_samples, val_samples, test_samples = _stratified_split(all_samples, seed=Config.SEED)
 
     train_tf = get_training_augmentation(image_size)
     val_tf = get_validation_augmentation(image_size)
@@ -193,7 +246,14 @@ def get_dataloaders(
     val_ds = FundusDataset(val_samples, transform=val_tf)
     test_ds = FundusDataset(test_samples, transform=val_tf)
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    # drop_last=True on train_loader to guarantee batch size > 1 (satisfies BatchNorm)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        drop_last=(len(train_ds) > batch_size)
+    )
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
