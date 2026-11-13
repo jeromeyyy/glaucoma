@@ -18,9 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python requirements
+# Install Python requirements with lightweight CPU PyTorch index
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt fastapi uvicorn python-multipart
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
 # Copy complete project codebase
 COPY . /app/

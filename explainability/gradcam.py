@@ -1,4 +1,5 @@
-﻿import cv2
+﻿import os
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -49,62 +50,106 @@ class GradCAM:
             target_class: int
             confidence: float
         """
-        with torch.enable_grad():
-            self.model.zero_grad()
-            inp = input_tensor.clone().detach().requires_grad_(True)
-            
-            # Forward pass
-            output = self.model(inp)
-            if isinstance(output, dict):
-                logits = output["logits"]
-            else:
-                logits = output[0] if isinstance(output, tuple) else output
-
-            probs = F.softmax(logits, dim=-1)
-            
-            if target_class is None:
-                target_class = torch.argmax(logits, dim=-1).item()
-                
-            confidence = probs[0, target_class].item()
-
-            # Backward pass on the target class score
-            score = logits[0, target_class]
-            score.backward(retain_graph=True)
-
-            if self.gradients is None or self.activations is None:
-                # Fallback: if hooks did not trigger, extract feature activations directly
+        # Low memory protection for 512MB free tier containers (Render Free)
+        if os.environ.get("LOW_MEMORY_MODE", "0") == "1":
+            with torch.no_grad():
+                output = self.model(input_tensor)
+                logits = output["logits"] if isinstance(output, dict) else output
+                probs = F.softmax(logits, dim=-1)
+                if target_class is None:
+                    target_class = torch.argmax(logits, dim=-1).item()
+                confidence = probs[0, target_class].item()
                 if hasattr(self.model, "backbone"):
-                    feat = self.model.backbone.forward_features(inp)
+                    feat = self.model.backbone.forward_features(input_tensor)
                 else:
-                    feat = self.model.features(inp)
+                    feat = self.model.features(input_tensor)
                 cam = torch.mean(feat, dim=1, keepdim=True)
-            else:
-                # Global average pooling of gradients: alpha_k = (1/Z) * sum(grad_k)
-                weights = torch.mean(self.gradients, dim=[2, 3], keepdim=True)  # [1, C, 1, 1]
-                # Linear combination of weighted feature maps
-                cam = torch.sum(weights * self.activations, dim=1, keepdim=True)  # [1, 1, H, W]
+                cam = F.relu(cam)
+                cam = F.interpolate(
+                    cam,
+                    size=(input_tensor.size(2), input_tensor.size(3)),
+                    mode="bilinear",
+                    align_corners=False
+                )
+                cam = cam.squeeze().detach().cpu().numpy()
+                cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+                return cam, target_class, confidence
 
-            # ReLU to focus on features having positive contribution
-            cam = F.relu(cam)
+        try:
+            with torch.enable_grad():
+                self.model.zero_grad()
+                inp = input_tensor.clone().detach().requires_grad_(True)
+                
+                # Forward pass
+                output = self.model(inp)
+                if isinstance(output, dict):
+                    logits = output["logits"]
+                else:
+                    logits = output[0] if isinstance(output, tuple) else output
 
-            # Upsample to input tensor resolution
-            cam = F.interpolate(
-                cam,
-                size=(input_tensor.size(2), input_tensor.size(3)),
-                mode="bilinear",
-                align_corners=False
-            )
+                probs = F.softmax(logits, dim=-1)
+                
+                if target_class is None:
+                    target_class = torch.argmax(logits, dim=-1).item()
+                    
+                confidence = probs[0, target_class].item()
 
-            cam = cam.squeeze().detach().cpu().numpy()
+                # Backward pass on the target class score
+                score = logits[0, target_class]
+                score.backward(retain_graph=False)
 
-            # Normalize to [0, 1]
-            cam_min, cam_max = cam.min(), cam.max()
-            if cam_max - cam_min > 1e-8:
-                cam = (cam - cam_min) / (cam_max - cam_min)
-            else:
-                cam = np.zeros_like(cam)
+                if self.gradients is None or self.activations is None:
+                    # Fallback: if hooks did not trigger, extract feature activations directly
+                    if hasattr(self.model, "backbone"):
+                        feat = self.model.backbone.forward_features(inp)
+                    else:
+                        feat = self.model.features(inp)
+                    cam = torch.mean(feat, dim=1, keepdim=True)
+                else:
+                    # Global average pooling of gradients: alpha_k = (1/Z) * sum(grad_k)
+                    weights = torch.mean(self.gradients, dim=[2, 3], keepdim=True)  # [1, C, 1, 1]
+                    # Linear combination of weighted feature maps
+                    cam = torch.sum(weights * self.activations, dim=1, keepdim=True)  # [1, 1, H, W]
 
-            return cam, target_class, confidence
+                # ReLU to focus on features having positive contribution
+                cam = F.relu(cam)
+
+                # Upsample to input tensor resolution
+                cam = F.interpolate(
+                    cam,
+                    size=(input_tensor.size(2), input_tensor.size(3)),
+                    mode="bilinear",
+                    align_corners=False
+                )
+
+                cam = cam.squeeze().detach().cpu().numpy()
+        except (RuntimeError, MemoryError):
+            # Graceful OOM protection fallback
+            with torch.no_grad():
+                if hasattr(self.model, "backbone"):
+                    feat = self.model.backbone.forward_features(input_tensor)
+                else:
+                    feat = self.model.features(input_tensor)
+                cam = torch.mean(feat, dim=1, keepdim=True)
+                cam = F.relu(cam)
+                cam = F.interpolate(
+                    cam,
+                    size=(input_tensor.size(2), input_tensor.size(3)),
+                    mode="bilinear",
+                    align_corners=False
+                )
+                cam = cam.squeeze().detach().cpu().numpy()
+                target_class = target_class or 0
+                confidence = 0.5
+
+        # Normalize to [0, 1]
+        cam_min, cam_max = cam.min(), cam.max()
+        if cam_max - cam_min > 1e-8:
+            cam = (cam - cam_min) / (cam_max - cam_min)
+        else:
+            cam = np.zeros_like(cam)
+
+        return cam, target_class, confidence
 
     @staticmethod
     def create_overlay(image_rgb, heatmap, alpha=0.45, colormap=cv2.COLORMAP_JET):

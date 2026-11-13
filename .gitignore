@@ -38,3 +38,5 @@ static/generated/*.pdf
 static/generated/*.png
 
 
+data/ORIGA/
+data/synthetic_fundus/

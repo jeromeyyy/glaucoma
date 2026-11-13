@@ -1,6 +1,17 @@
+---
+title: GLUCOM - Explainable Glaucoma Detection
+emoji: 👁️
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 5000
+pinned: false
+---
+
 # Explainable Glaucoma Detection Using EfficientNet-B3, Hypergraph Neural Networks, and Vision-Language Transformers
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/jeromeyyy/glaucoma)
+[![Deploy on HF Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/deploy-to-spaces-lg.svg)](https://huggingface.co/new-space?template=jeromeyyy/glaucoma)
 [![CI/CD Pipeline](https://github.com/jeromeyyy/glaucoma/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/jeromeyyy/glaucoma/actions)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
