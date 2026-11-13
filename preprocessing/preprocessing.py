@@ -7,7 +7,7 @@ import torch
 
 from .transforms import apply_clahe_enhancement, get_inference_transform
 
-ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 
 def validate_image_path(path):
     if not os.path.exists(path):

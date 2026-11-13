@@ -117,6 +117,9 @@ def validate_image_header(file_bytes: bytes) -> bool:
     # PNG magic bytes: 89 50 4E 47
     if file_bytes[:4] == b"\x89PNG":
         return True
+    # WebP magic bytes: RIFF....WEBP
+    if len(file_bytes) >= 12 and file_bytes[:4] == b"RIFF" and file_bytes[8:12] == b"WEBP":
+        return True
     return False
 
 # -------------------------------------------------------------

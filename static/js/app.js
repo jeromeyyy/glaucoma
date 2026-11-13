@@ -61,11 +61,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handleFileSelect(file) {
-    const validTypes = ["image/jpeg", "image/jpg", "image/png"];
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
     
-    if (!validTypes.includes(file.type) && ![".jpg", ".jpeg", ".png"].includes(ext)) {
-      showError("Invalid format. Please upload a JPG, JPEG, or PNG retinal fundus image.");
+    if (!validTypes.includes(file.type) && ![".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
+      showError("Invalid format. Please upload a JPG, JPEG, PNG, or WebP retinal fundus image.");
       return;
     }
 
@@ -120,9 +120,19 @@ document.addEventListener("DOMContentLoaded", () => {
         body: formData
       })
       .then(async (res) => {
-        const data = await res.json();
+        const contentType = res.headers.get("content-type") || "";
+        let data;
+        if (contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          if (res.status === 502 || res.status === 504) {
+            throw new Error("The cloud server was spinning up from idle (cold start). Please click 'Run Deep Multimodal Screening' again now that the server is active.");
+          }
+          throw new Error(`Server returned HTTP ${res.status}. Please retry your submission.`);
+        }
         if (!res.ok) {
-          throw new Error(data.error || "Analysis failed.");
+          throw new Error(data.detail || data.error || data.message || `Error ${res.status}: Analysis failed.`);
         }
         return data;
       })
